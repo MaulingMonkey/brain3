@@ -14,6 +14,12 @@ namespace brain {
 			virtual ~object() {}
 		};
 
+		template < typename T > class by_value_wrapper {
+			T value;
+		public:
+			by_value_wrapper( T value ): value(value) {}
+		};
+
 		class value {
 			union {
 				signed char         i8;
@@ -41,20 +47,20 @@ namespace brain {
 			BOOST_STATIC_ASSERT( sizeof(int      )*CHAR_BIT >= 32 );
 			BOOST_STATIC_ASSERT( sizeof(long long)*CHAR_BIT >= 64 );
 		public:
-			value()                        : type(type::id<void>())                         {}
+			value(); // XXX: conflicts with brain.ml2.ast "value" class currently :o -- silly ODR violating monkey
 			
-			value( signed char        i8  ): i8 (i8 ), type(type::id<  signed char     >()) {}
-			value( signed short       i16 ): i16(i16), type(type::id<  signed short    >()) {}
-			value( signed int         i32 ): i16(i16), type(type::id<  signed int      >()) {}
-			value( signed long long   i64 ): i16(i16), type(type::id<  signed long long>()) {}
+			value( signed char        i8  );
+			value( signed short       i16 );
+			value( signed int         i32 );
+			value( signed long long   i64 );
 			
-			value( unsigned char      u8  ): u8 (u8 ), type(type::id<unsigned char     >()) {}
-			value( unsigned short     u16 ): u16(u16), type(type::id<unsigned short    >()) {}
-			value( unsigned int       u32 ): u32(u32), type(type::id<unsigned int      >()) {}
-			value( unsigned long long u64 ): u64(u64), type(type::id<unsigned long long>()) {}
+			value( unsigned char      u8  );
+			value( unsigned short     u16 );
+			value( unsigned int       u32 );
+			value( unsigned long long u64 );
 			
-			value( float              f32 ): f32(f32), type(type::id<float             >()) {}
-			value( double             f64 ): f64(f64), type(type::id<double            >()) {}
+			value( float              f32 );
+			value( double             f64 );
 
 			template < typename F > friend typename F::result_type apply_visitor( F f, const value& v ) {
 				typedef ml2::type::keys t;
@@ -96,38 +102,20 @@ namespace brain {
 					return f(lhs,rhs);
 				}
 			};
-
-			template < typename SelfT > struct bin_op_f {
-				typedef value result_type;
-				template < typename L, typename R > result_type operator()( L l, R r ) const { return SelfT::primitive(l,r); }
-				template < typename L > result_type operator()( L l, object* r ) const { return 0; }
-				template < typename R > result_type operator()( object* l, R r ) const { return 0; }
-				result_type operator()( object* l, object* r ) const { return 0; }
-			};
-			struct add_f : bin_op_f<add_f> { template < typename L, typename R > static result_type primitive( L l, R r ) { return l+r; } };
-			struct sub_f : bin_op_f<sub_f> { template < typename L, typename R > static result_type primitive( L l, R r ) { return l-r; } };
-			struct mul_f : bin_op_f<mul_f> { template < typename L, typename R > static result_type primitive( L l, R r ) { return l*r; } };
-			struct div_f : bin_op_f<div_f> { template < typename L, typename R > static result_type primitive( L l, R r ) { return l/r; } };
-			struct print_f {
-				typedef void result_type;
-				std::ostream* os;
-				print_f( std::ostream& os ): os(&os) {}
-				template < typename V > result_type operator()( V v ) const { *os << v; }
-			};
 		public:
-			friend value operator+( const value& lhs, const value& rhs ) { return apply_visitor( add_f(), lhs, rhs ); }
-			friend value operator-( const value& lhs, const value& rhs ) { return apply_visitor( sub_f(), lhs, rhs ); }
-			friend value operator*( const value& lhs, const value& rhs ) { return apply_visitor( mul_f(), lhs, rhs ); }
-			friend value operator/( const value& lhs, const value& rhs ) { return apply_visitor( div_f(), lhs, rhs ); }
-			friend std::ostream& operator<<( std::ostream& os, const value& v ) { apply_visitor( print_f(os), v ); return os; }
+			friend value operator+( const value& lhs, const value& rhs );
+			friend value operator-( const value& lhs, const value& rhs );
+			friend value operator*( const value& lhs, const value& rhs );
+			friend value operator/( const value& lhs, const value& rhs );
+			friend std::ostream& operator<<( std::ostream& os, const value& v );
 
-			value& operator+=( const value& other ) { *this = apply_visitor( add_f(), *this, other ); return *this; }
-			value& operator-=( const value& other ) { *this = apply_visitor( sub_f(), *this, other ); return *this; }
-			value& operator*=( const value& other ) { *this = apply_visitor( mul_f(), *this, other ); return *this; }
-			value& operator/=( const value& other ) { *this = apply_visitor( div_f(), *this, other ); return *this; }
+			value& operator+=( const value& other );
+			value& operator-=( const value& other );
+			value& operator*=( const value& other );
+			value& operator/=( const value& other );
 
 			//value operator()( ... )
-		};3
+		};
 
 		//...
 	}
