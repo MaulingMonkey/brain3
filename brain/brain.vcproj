@@ -200,6 +200,22 @@
 			>
 		</File>
 		<File
+			RelativePath=".\brain.ml2.type.cpp"
+			>
+		</File>
+		<File
+			RelativePath=".\brain.ml2.type.hpp"
+			>
+		</File>
+		<File
+			RelativePath=".\brain.ml2.value.cpp"
+			>
+		</File>
+		<File
+			RelativePath=".\brain.ml2.value.hpp"
+			>
+		</File>
+		<File
 			RelativePath=".\brain.x86.assembler.base.hpp"
 			>
 		</File>
