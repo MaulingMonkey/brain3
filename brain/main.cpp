@@ -134,15 +134,16 @@ void test3() {
 
 	typedef brain::ml2::value value;
 
+	//string op = "print(4*a+b);";
 	string op = "print(4*a+b);";
 	ml2::grammar g;
 	expr_ref_t expression;
 	parse_info<string::const_iterator> info = parse( op.begin(), op.end(), g[assign_a(expression)], +space_p );
 	if ( info.full ) {
 		ml2::expression::calculate_args_type args;
-		args["a"] = 42.1;
-		args["b"] = 24.3;
-		args["print"] = boost::function< value( const std::vector<value>& ) >(print_f(std::cout));
+		args["a"]     = 42.1;
+		args["b"]     = 24.3;
+		args["print"] = boost::function< value(std::vector<value> ) >(print_f(std::cout));
 		std::cout << "\n=> " << expression->calculate(args) << std::endl;
 	} else {
 		std::cout << "Failed to fully match!" << std::endl;

@@ -1,89 +1,123 @@
 #ifndef IG_BRAIN_ML2_VALUE
 #define IG_BRAIN_ML2_VALUE
 
-#include "brain.ml2.type.hpp"
+#include <industry/enum/basic_enum.hpp>
+#include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/static_assert.hpp>
 #include <ostream>
+#include <limits>
+#include <vector>
 #include <climits>
 
 namespace brain {
 	namespace ml2 {
+		
+		class value;
+
+		template < typename R > class value_visitor;
+
 		class object {
 		public:
 			virtual ~object() {}
+			virtual value visit( const value_visitor<value>& visitor );
 		};
 
-		template < typename T > class by_value_wrapper {
-			T value;
+		template < typename R > class value_visitor {
 		public:
-			by_value_wrapper( T value ): value(value) {}
+			virtual R operator()( signed char        ) const = 0;
+			virtual R operator()( signed short       ) const = 0;
+			virtual R operator()( signed int         ) const = 0;
+			virtual R operator()( signed long        ) const = 0;
+			virtual R operator()( signed long long   ) const = 0;
+
+			virtual R operator()( unsigned char      ) const = 0;
+			virtual R operator()( unsigned short     ) const = 0;
+			virtual R operator()( unsigned int       ) const = 0;
+			virtual R operator()( unsigned long      ) const = 0;
+			virtual R operator()( unsigned long long ) const = 0;
+
+			virtual R operator()( bool               ) const = 0;
+			virtual R operator()( char               ) const = 0;
+			virtual R operator()( float              ) const = 0;
+			virtual R operator()( double             ) const = 0;
+			virtual R operator()( long double        ) const = 0;
+
+			virtual R operator()( object*            ) const = 0;
 		};
 
-		class value {
-			union {
-				signed char         i8;
-				signed short        i16;
-				signed int          i32;
-				signed long long    i64;
-				
-				unsigned char       u8;
-				unsigned short      u16;
-				unsigned int        u32;
-				unsigned long long  u64;
-
-				float               f32;
-				double              f64;
-
-				char                data[64/CHAR_BIT];
-
-				object*             o;
-			};
-
-			ml2::type type;
-
-			BOOST_STATIC_ASSERT( sizeof(char     )*CHAR_BIT >=  8 );
-			BOOST_STATIC_ASSERT( sizeof(short    )*CHAR_BIT >= 16 );
-			BOOST_STATIC_ASSERT( sizeof(int      )*CHAR_BIT >= 32 );
-			BOOST_STATIC_ASSERT( sizeof(long long)*CHAR_BIT >= 64 );
+		template < typename F , typename R = typename F::result_type > class value_visitor_adapter : public value_visitor< R > {
+			F f;
 		public:
-			value(); // XXX: conflicts with brain.ml2.ast "value" class currently :o -- silly ODR violating monkey
+			value_visitor_adapter( F f ): f(f) {}
+
+			virtual R operator()( signed char        arg ) const { return f(arg); }
+			virtual R operator()( signed short       arg ) const { return f(arg); }
+			virtual R operator()( signed int         arg ) const { return f(arg); }
+			virtual R operator()( signed long        arg ) const { return f(arg); }
+			virtual R operator()( signed long long   arg ) const { return f(arg); }
+
+			virtual R operator()( unsigned char      arg ) const { return f(arg); }
+			virtual R operator()( unsigned short     arg ) const { return f(arg); }
+			virtual R operator()( unsigned int       arg ) const { return f(arg); }
+			virtual R operator()( unsigned long      arg ) const { return f(arg); }
+			virtual R operator()( unsigned long long arg ) const { return f(arg); }
+
+			virtual R operator()( bool               arg ) const { return f(arg); }
+			virtual R operator()( char               arg ) const { return f(arg); }
+			virtual R operator()( float              arg ) const { return f(arg); }
+			virtual R operator()( double             arg ) const { return f(arg); }
+			virtual R operator()( long double        arg ) const { return f(arg); }
+
+			virtual R operator()( object*            arg ) const { return f(arg); }
+		};
+
+		
+
+		class value { // XXX: conflicts with brain.ml2.ast "value" class currently :o -- silly ODR violating monkey
+			static const size_t data_size = 16;
+			char data[data_size];
+			
+			template < typename O > void init( const O& object );
+		public:
+			value();
+			~value();
 			
 			value( signed char        i8  );
 			value( signed short       i16 );
 			value( signed int         i32 );
+			value( signed long        iwtf);
 			value( signed long long   i64 );
 			
 			value( unsigned char      u8  );
 			value( unsigned short     u16 );
 			value( unsigned int       u32 );
+			value( unsigned long      uwtf);
 			value( unsigned long long u64 );
 			
+			value( bool               b   );
+			value( char               ch  );
 			value( float              f32 );
 			value( double             f64 );
+			value( long double        fwtf);
 
-			template < typename F > friend typename F::result_type apply_visitor( F f, const value& v ) {
-				typedef ml2::type::keys t;
+			value( const boost::function<void ()>& f );
+			value( const boost::function<value()>& f );
+			value( const boost::function<void (value)>& f );
+			value( const boost::function<value(value)>& f );
+			value( const boost::function<void (std::vector<value>)>& f );
+			value( const boost::function<value(std::vector<value>)>& f );
 
-				switch ( v.type.key() ) {
-				case t::  void_            : return f((object*)0);
-				case t::  signed_char_     : return f(v.i8 );
-				case t::  signed_short_    : return f(v.i16);
-				case t::  signed_int_      : return f(v.i32);
-				case t::  signed_long_long_: return f(v.i64);
-				case t::unsigned_char_     : return f(v.u8 );
-				case t::unsigned_short_    : return f(v.u16);
-				case t::unsigned_int_      : return f(v.u32);
-				case t::unsigned_long_long_: return f(v.u64);
-				case t::float_             : return f(v.f32);
-				case t::double_            : return f(v.f64);
-				default: return f( (size_of(v.type)*CHAR_BIT>64) ? v.o : ((object*)v.data) );
-				}
+			template < typename F > friend value apply_visitor( F f, const value& v ) {
+				return ((object*)v.data)->visit( value_visitor_adapter<F>(f) );
+				//(object*)data;
+				//return v;
 			}
-			template < typename F > friend typename F::result_type apply_visitor( F f, const value& lhs, const value& rhs ) {
+			template < typename F > friend value apply_visitor( F f, const value& lhs, const value& rhs ) {
 				return apply_visitor( binary_visitor_f_lhs<F>(f,rhs), lhs );
 			}
 		private:
+			
 			template < typename F > class binary_visitor_f_lhs {
 				F f; const value* rhs;
 			public:
@@ -117,7 +151,35 @@ namespace brain {
 			//value operator()( ... )
 		};
 
-		//...
+		class indirect_object : public object {
+		protected:
+			object* o;
+		public:
+			indirect_object( object* o ): o(o) {}
+			virtual value visit( const value_visitor<value>& visitor ) { if (o) return o->visit(visitor); else return visitor((object*)0); }
+		};
+
+		class nil_object : public object {
+		public:
+			virtual value visit( const value_visitor<value>& visitor ) { return visitor((object*)0); }
+		};
+
+		template < typename T > class numeric_object : public object {
+			T data;
+		public:
+			numeric_object( T data ): data(data) {}
+
+			virtual value visit( const value_visitor<value>& visitor ) { return visitor(data); }
+		};
+
+		template < typename T > class object_adapter : public object {
+			T self;
+		public:
+			object_adapter( T instance ): self(instance) {}
+		};
+
+		class function_object : public object {
+		};
 	}
 }
 

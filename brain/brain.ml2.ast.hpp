@@ -2,6 +2,8 @@
 #define IG_BRAIN_ML2_AST
 
 #include "brain.grammar.hpp"
+#include "brain.ml2.value.hpp"
+#include "brain.ml2.visitors.hpp"
 #include <boost/foreach.hpp>
 #include <boost/function.hpp>
 #include <boost/variant.hpp>
@@ -12,55 +14,6 @@
 
 namespace brain {
 	namespace ml2 {
-		class value {
-			typedef boost::variant
-				< boost::function< value() >
-				, boost::function< value(const std::vector<value>&) >
-				> function_types;
-
-			typedef boost::variant
-				< double
-				, int
-				> value_types;
-			
-			boost::variant< void*, function_types, value_types > data;
-		public:
-			value() : data() {}
-			value( const boost::function< value(                         ) >& f ): data(function_types(f)) {}
-			value( const boost::function< value(const std::vector<value>&) >& f ): data(function_types(f)) {}
-			value( double d ): data(value_types(d)) {}
-			value( int    i ): data(value_types(i)) {}
-
-			value& operator=( const value                     & o ) { data = o.data; return *this; }
-			value& operator=( const boost::function< value(                         ) >& f ) { data = function_types(f); return *this; }
-			value& operator=( const boost::function< value(const std::vector<value>&) >& f ) { data = function_types(f); return *this; }
-			value& operator=( double d ) { data = value_types(d); return *this; }
-			value& operator=( int    i ) { data = value_types(i); return *this; }
-
-			template < typename F > friend typename F::result_type apply_value_visitor( F f, const value& v ) {
-				const value_types* value = boost::get<const value_types>(&v.data);
-				if (!value) throw std::runtime_error( "Expected a value" );
-				return boost::apply_visitor( f, *value );
-			}
-			template < typename F > friend typename F::result_type apply_function_visitor( F f, const value& v ) {
-				const function_types* func = boost::get<const function_types>(&v.data);
-				if (!func) throw std::runtime_error( "Expected a function" );
-				return boost::apply_visitor( f, *func );
-			}
-			template < typename F > friend typename F::result_type apply_value_value_visitor( F f, const value& lhs, const value& rhs ) {
-				const value_types* lhs_ = boost::get<const value_types>(&lhs.data);
-				const value_types* rhs_ = boost::get<const value_types>(&rhs.data);
-				if (!lhs_ || !rhs_) throw std::runtime_error( "Expected a value" );
-				return boost::apply_visitor( f, *lhs_, *rhs_ );
-			}
-			struct print_to { std::ostream& os; print_to( std::ostream& os ): os(os) {} typedef void result_type; template < typename T > void operator()( const T& v ) { os << v; } };
-			friend std::ostream& operator<<( std::ostream& os, const value& v ) {
-				if ( boost::get<const value_types>(&v.data) ) apply_value_visitor( print_to(os), v );
-				else os << "void";
-				return os;
-			}
-		};
-
 		class expression {
 		public:
 			typedef value calculate_result_type;
@@ -130,7 +83,8 @@ namespace brain {
 				std::vector<calculate_result_type> arg_results;
 				BOOST_FOREACH( const expression::ref& arg, args ) arg_results.push_back( arg->calculate(calc_args) );
 
-				return apply_function_visitor( call_f(arg_results), f );
+				return calculate_result_type(); // XXX
+				//return apply_function_visitor( call_f(arg_results), f );
 			}
 			
 			virtual int precedence() const { return 1; }
@@ -142,19 +96,9 @@ namespace brain {
 			virtual void add_argument( const expression::ref& arg ) { args.push_back(arg); }
 		};
 
-		template < typename SelfT, char op, size_t preced, bool ltor = true > class binary_expression : public expression {
-		protected:
-			struct calc_f {
-				typedef expression::calculate_result_type result_type;
-				template < typename L, typename R > result_type operator()( L l, R r ) const {
-					return SelfT::do_calculate(l,r);
-				}
-			};
-
+		template < typename CalcV, char op, size_t preced, bool ltor = true > class binary_expression : public expression {
 			expr_ref_t lhs, rhs;
 		public:
-			typedef grammar::expression_ref<binary_expression> ref;
-
 			binary_expression( expr_ref_t lhs, expr_ref_t rhs ): lhs(lhs), rhs(rhs) {}
 			virtual int precedence() const { return preced; }
 			virtual void print_to( std::ostream& os ) const {
@@ -163,49 +107,15 @@ namespace brain {
 				os << (lp?"(":"") << *lhs << (lp?")":"") << op << (rp?"(":"") << *rhs << (rp?")":"");
 			}
 			virtual calculate_result_type calculate( const calculate_args_type& args ) const {
-				return apply_value_value_visitor(calc_f(),lhs->calculate(args),rhs->calculate(args));
+				return apply_visitor(CalcV(),lhs->calculate(args),rhs->calculate(args));
 			}
 		};
 
-		class add_expression : public binary_expression<add_expression,'+',3> {
-		public:
-			typedef grammar::expression_ref<add_expression> ref;
-
-			add_expression( expr_ref_t lhs, expr_ref_t rhs ): binary_expression(lhs,rhs) {}
-			template < typename L, typename R > static calculate_result_type do_calculate( L l, R r ) { return l+r; }
-		};
-
-		class sub_expression : public binary_expression<sub_expression,'-',3> {
-		public:
-			typedef grammar::expression_ref<sub_expression> ref;
-
-			sub_expression( expr_ref_t lhs, expr_ref_t rhs ): binary_expression(lhs,rhs) {}
-			template < typename L, typename R > static calculate_result_type do_calculate( L l, R r ) { return l-r; }
-		};
-
-		class div_expression : public binary_expression<div_expression,'/',2> {
-		public:
-			typedef grammar::expression_ref<div_expression> ref;
-
-			div_expression( expr_ref_t lhs, expr_ref_t rhs ): binary_expression(lhs,rhs) {}
-			template < typename L, typename R > static calculate_result_type do_calculate( L l, R r ) { return l/r; }
-		};
-
-		class mul_expression : public binary_expression<mul_expression,'*',2> {
-		public:
-			typedef grammar::expression_ref<mul_expression> ref;
-
-			mul_expression( expr_ref_t lhs, expr_ref_t rhs ): binary_expression(lhs,rhs) {}
-			template < typename L, typename R > static calculate_result_type do_calculate( L l, R r ) { return l*r; }
-		};
-
-		class pow_expression : public binary_expression<pow_expression,'^',4,false> {
-		public:
-			typedef grammar::expression_ref<pow_expression> ref;
-
-			pow_expression( expr_ref_t lhs, expr_ref_t rhs ): binary_expression(lhs,rhs) {}
-			template < typename L, typename R > static calculate_result_type do_calculate( L l, R r ) { return std::pow(double(l),r); }
-		};
+		typedef binary_expression<add_visitor,'+',3      > add_expression;
+		typedef binary_expression<sub_visitor,'-',3      > sub_expression;
+		typedef binary_expression<mul_visitor,'*',2      > mul_expression;
+		typedef binary_expression<div_visitor,'/',2      > div_expression;
+		typedef binary_expression<pow_visitor,'^',4,false> pow_expression;
 	}
 }
 

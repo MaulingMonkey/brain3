@@ -19,7 +19,7 @@ namespace brain {
 	// Precd 0: Unassociative (var,23.4,(...))
 	LEAF_RULE( l_int , ((double,value)), real_p[value=arg1] ) { return value_expression(value); }
 	LEAF_RULE( l_var , ((std::string,value)), ((alpha_p|'_') >> *(alnum_p|'_'))[value=construct_<std::string>(arg1,arg2)] ) { return variable_expression(value); }
-	RULE( op_parens, (subexpr), '(' >> top[subexpr=arg1] >> ')' ) { return subexpr; }
+	RULE( op_parens, (subexpr), '(' >> precdN[subexpr=arg1] >> ')' ) { return subexpr; }
 	RULE_GROUP( precd0, (op_parens)(l_int)(l_var) );
 
 	// Precd 1: LTOR associative (f(...))
