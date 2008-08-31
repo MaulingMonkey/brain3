@@ -60,23 +60,6 @@ namespace brain {
 		class call_expression : public expression {
 			variable_expression::ref callee;
 			std::vector<expression::ref> args;
-
-			class call_f {
-				const std::vector<value*>& args;
-			public:
-				typedef value result_type;
-				
-				call_f( const std::vector<value*>& args ): args(args) {}
-
-				value operator()( const functor_object* f ) const {
-					return (*f)(args);
-				}
-				template < typename T > value operator()( const T& other ) const {
-					std::stringstream ss;
-					ss << "Cannot call a " << typeid(T).name();
-					throw std::runtime_error(ss.str());
-				}
-			};
 		public:
 			typedef grammar::expression_ref<call_expression> ref;
 
@@ -89,7 +72,7 @@ namespace brain {
 				std::vector<value*> arg_results;
 				BOOST_FOREACH( value& result, results ) arg_results.push_back(&result);
 
-				return apply_visitor( call_f(arg_results), f );
+				return apply_visitor( call_visitor(arg_results), f );
 			}
 			
 			virtual int precedence() const { return 1; }

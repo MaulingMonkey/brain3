@@ -54,6 +54,22 @@ namespace brain {
 
 			template < typename L, typename R > value impl( L l, R r ) const { return impl2(up(l),up(r)); }
 		};
+		struct call_visitor {
+			typedef value result_type;
+			
+			call_visitor( const std::vector<value*>& args ): args(args) {}
+
+			value operator()( const functor_object* f ) const {
+				return (*f)(args);
+			}
+			template < typename T > value operator()( const T& other ) const {
+				std::stringstream ss;
+				ss << "Cannot call a " << typeid(T).name();
+				throw std::runtime_error(ss.str());
+			}
+		private:
+			const std::vector<value*>& args;
+		};
 	}
 }
 
