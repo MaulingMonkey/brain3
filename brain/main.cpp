@@ -118,8 +118,8 @@ class print_f {
 public:
 	print_f( std::ostream& os ): os(os) {}
 
-	brain::ml2::value operator()( const std::vector< brain::ml2::value >& args ) const {
-		BOOST_FOREACH( const brain::ml2::value& v, args ) os << v;
+	brain::ml2::value operator()( const std::vector< brain::ml2::value* >& args ) const {
+		BOOST_FOREACH( const brain::ml2::value* v, args ) os << *v;
 		return brain::ml2::value();
 	}
 };
@@ -143,7 +143,7 @@ void test3() {
 		ml2::expression::calculate_args_type args;
 		args["a"]     = 42.1;
 		args["b"]     = 24.3;
-		args["print"] = boost::function< value(std::vector<value> ) >(print_f(std::cout));
+		args["print"] = boost::function< value(std::vector<value*> ) >(print_f(std::cout));
 		std::cout << "\n=> " << expression->calculate(args) << std::endl;
 	} else {
 		std::cout << "Failed to fully match!" << std::endl;

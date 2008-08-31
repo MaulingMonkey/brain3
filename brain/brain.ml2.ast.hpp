@@ -62,29 +62,34 @@ namespace brain {
 			std::vector<expression::ref> args;
 
 			class call_f {
-				const std::vector<value>& args;
+				const std::vector<value*>& args;
 			public:
-				call_f( const std::vector<value>& args ): args(args) {}
-
 				typedef value result_type;
-				result_type operator()( const boost::function< value () >& f ) const {
-					if (!args.empty()) throw std::runtime_error( "Function doesn't expect any arguments, yet was passed some" );
-					return f();
+				
+				call_f( const std::vector<value*>& args ): args(args) {}
+
+				value operator()( const functor_object* f ) const {
+					return (*f)(args);
 				}
-				result_type operator()( const boost::function< value ( const std::vector<value>& ) >& f ) const { return f(args); }
+				template < typename T > value operator()( const T& other ) const {
+					std::stringstream ss;
+					ss << "Cannot call a " << typeid(T).name();
+					throw std::runtime_error(ss.str());
+				}
 			};
 		public:
 			typedef grammar::expression_ref<call_expression> ref;
 
 			call_expression( const expression::ref& callee ): callee(callee) {}
 			virtual calculate_result_type calculate( const calculate_args_type& calc_args ) const {
-				calculate_result_type f = callee->calculate(calc_args);
+				value f = callee->calculate(calc_args);
 
-				std::vector<calculate_result_type> arg_results;
-				BOOST_FOREACH( const expression::ref& arg, args ) arg_results.push_back( arg->calculate(calc_args) );
+				std::vector<value> results;
+				BOOST_FOREACH( const expression::ref& arg, args ) results.push_back( arg->calculate(calc_args) );
+				std::vector<value*> arg_results;
+				BOOST_FOREACH( value& result, results ) arg_results.push_back(&result);
 
-				return calculate_result_type(); // XXX
-				//return apply_function_visitor( call_f(arg_results), f );
+				return apply_visitor( call_f(arg_results), f );
 			}
 			
 			virtual int precedence() const { return 1; }

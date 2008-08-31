@@ -3,6 +3,7 @@
 
 #include <industry/enum/basic_enum.hpp>
 #include <boost/function.hpp>
+#include <boost/range.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/static_assert.hpp>
 #include <ostream>
@@ -12,7 +13,10 @@
 
 namespace brain {
 	namespace ml2 {
-		
+		namespace {
+			const size_t value_data_size = 16;
+		}
+
 		class value;
 
 		template < typename R > class value_visitor;
@@ -21,29 +25,33 @@ namespace brain {
 		public:
 			virtual ~object() {}
 			virtual value visit( const value_visitor<value>& visitor );
+			virtual void clone_to( char (&data)[value_data_size] ) const = 0;
 		};
+		class functor_object;
 
 		template < typename R > class value_visitor {
 		public:
-			virtual R operator()( signed char        ) const = 0;
-			virtual R operator()( signed short       ) const = 0;
-			virtual R operator()( signed int         ) const = 0;
-			virtual R operator()( signed long        ) const = 0;
-			virtual R operator()( signed long long   ) const = 0;
+			virtual R operator()( signed char           ) const = 0;
+			virtual R operator()( signed short          ) const = 0;
+			virtual R operator()( signed int            ) const = 0;
+			virtual R operator()( signed long           ) const = 0;
+			virtual R operator()( signed long long      ) const = 0;
 
-			virtual R operator()( unsigned char      ) const = 0;
-			virtual R operator()( unsigned short     ) const = 0;
-			virtual R operator()( unsigned int       ) const = 0;
-			virtual R operator()( unsigned long      ) const = 0;
-			virtual R operator()( unsigned long long ) const = 0;
+			virtual R operator()( unsigned char         ) const = 0;
+			virtual R operator()( unsigned short        ) const = 0;
+			virtual R operator()( unsigned int          ) const = 0;
+			virtual R operator()( unsigned long         ) const = 0;
+			virtual R operator()( unsigned long long    ) const = 0;
 
-			virtual R operator()( bool               ) const = 0;
-			virtual R operator()( char               ) const = 0;
-			virtual R operator()( float              ) const = 0;
-			virtual R operator()( double             ) const = 0;
-			virtual R operator()( long double        ) const = 0;
+			virtual R operator()( bool                  ) const = 0;
+			virtual R operator()( char                  ) const = 0;
+			virtual R operator()( float                 ) const = 0;
+			virtual R operator()( double                ) const = 0;
+			virtual R operator()( long double           ) const = 0;
 
-			virtual R operator()( object*            ) const = 0;
+			virtual R operator()( const functor_object* ) const = 0;
+
+			virtual R operator()( object*               ) const = 0;
 		};
 
 		template < typename F , typename R = typename F::result_type > class value_visitor_adapter : public value_visitor< R > {
@@ -51,36 +59,42 @@ namespace brain {
 		public:
 			value_visitor_adapter( F f ): f(f) {}
 
-			virtual R operator()( signed char        arg ) const { return f(arg); }
-			virtual R operator()( signed short       arg ) const { return f(arg); }
-			virtual R operator()( signed int         arg ) const { return f(arg); }
-			virtual R operator()( signed long        arg ) const { return f(arg); }
-			virtual R operator()( signed long long   arg ) const { return f(arg); }
+			virtual R operator()( signed char           arg ) const { return f(arg); }
+			virtual R operator()( signed short          arg ) const { return f(arg); }
+			virtual R operator()( signed int            arg ) const { return f(arg); }
+			virtual R operator()( signed long           arg ) const { return f(arg); }
+			virtual R operator()( signed long long      arg ) const { return f(arg); }
 
-			virtual R operator()( unsigned char      arg ) const { return f(arg); }
-			virtual R operator()( unsigned short     arg ) const { return f(arg); }
-			virtual R operator()( unsigned int       arg ) const { return f(arg); }
-			virtual R operator()( unsigned long      arg ) const { return f(arg); }
-			virtual R operator()( unsigned long long arg ) const { return f(arg); }
+			virtual R operator()( unsigned char         arg ) const { return f(arg); }
+			virtual R operator()( unsigned short        arg ) const { return f(arg); }
+			virtual R operator()( unsigned int          arg ) const { return f(arg); }
+			virtual R operator()( unsigned long         arg ) const { return f(arg); }
+			virtual R operator()( unsigned long long    arg ) const { return f(arg); }
 
-			virtual R operator()( bool               arg ) const { return f(arg); }
-			virtual R operator()( char               arg ) const { return f(arg); }
-			virtual R operator()( float              arg ) const { return f(arg); }
-			virtual R operator()( double             arg ) const { return f(arg); }
-			virtual R operator()( long double        arg ) const { return f(arg); }
+			virtual R operator()( bool                  arg ) const { return f(arg); }
+			virtual R operator()( char                  arg ) const { return f(arg); }
+			virtual R operator()( float                 arg ) const { return f(arg); }
+			virtual R operator()( double                arg ) const { return f(arg); }
+			virtual R operator()( long double           arg ) const { return f(arg); }
 
-			virtual R operator()( object*            arg ) const { return f(arg); }
+			virtual R operator()( const functor_object* arg ) const { return f(arg); }
+
+			virtual R operator()( object*               arg ) const { return f(arg); }
 		};
 
 		
 
-		class value { // XXX: conflicts with brain.ml2.ast "value" class currently :o -- silly ODR violating monkey
-			static const size_t data_size = 16;
-			char data[data_size];
+		class value {
+			char data[value_data_size];
 			
-			template < typename O > void init( const O& object );
+			template < typename O > void init( const O& o ) {
+				BOOST_STATIC_ASSERT( sizeof(O) <= sizeof(data) );
+				new (data) O(o);
+			}
 		public:
 			value();
+			value( const value& );
+			value& operator=( const value& other );
 			~value();
 			
 			value( signed char        i8  );
@@ -105,19 +119,16 @@ namespace brain {
 			value( const boost::function<value()>& f );
 			value( const boost::function<void (value)>& f );
 			value( const boost::function<value(value)>& f );
-			value( const boost::function<void (std::vector<value>)>& f );
-			value( const boost::function<value(std::vector<value>)>& f );
+			value( const boost::function<void (std::vector<value*>)>& f );
+			value( const boost::function<value(std::vector<value*>)>& f );
 
 			template < typename F > friend value apply_visitor( F f, const value& v ) {
 				return ((object*)v.data)->visit( value_visitor_adapter<F>(f) );
-				//(object*)data;
-				//return v;
 			}
 			template < typename F > friend value apply_visitor( F f, const value& lhs, const value& rhs ) {
 				return apply_visitor( binary_visitor_f_lhs<F>(f,rhs), lhs );
 			}
 		private:
-			
 			template < typename F > class binary_visitor_f_lhs {
 				F f; const value* rhs;
 			public:
@@ -151,34 +162,18 @@ namespace brain {
 			//value operator()( ... )
 		};
 
-		class indirect_object : public object {
+		class functor_object : public object {
 		protected:
-			object* o;
+			virtual value invoke( value** begin, value** end ) const = 0; // XXX -- replace this signature, it is horrible evil and broken horrible
 		public:
-			indirect_object( object* o ): o(o) {}
-			virtual value visit( const value_visitor<value>& visitor ) { if (o) return o->visit(visitor); else return visitor((object*)0); }
-		};
+			virtual value visit( const value_visitor<value>& visitor ) { return visitor(this); }
 
-		class nil_object : public object {
-		public:
-			virtual value visit( const value_visitor<value>& visitor ) { return visitor((object*)0); }
-		};
-
-		template < typename T > class numeric_object : public object {
-			T data;
-		public:
-			numeric_object( T data ): data(data) {}
-
-			virtual value visit( const value_visitor<value>& visitor ) { return visitor(data); }
-		};
-
-		template < typename T > class object_adapter : public object {
-			T self;
-		public:
-			object_adapter( T instance ): self(instance) {}
-		};
-
-		class function_object : public object {
+			value operator()() const { return invoke(0,0); }
+			value operator()( value arg1 ) const { value* args[] = { &arg1 }; return invoke(boost::begin(args),boost::end(args)); }
+			value operator()( value arg1, value arg2 ) const { value* args[] = { &arg1,&arg2 }; return invoke(boost::begin(args),boost::end(args)); }
+			value operator()( value arg1, value arg2, value arg3 ) const { value* args[] = { &arg1,&arg2,&arg3 }; return invoke(boost::begin(args),boost::end(args)); }
+			value operator()( value arg1, value arg2, value arg3, value arg4 ) const { value* args[] = { &arg1,&arg2,&arg3,&arg4 }; return invoke(boost::begin(args),boost::end(args)); }
+			value operator()( std::vector<value*> args ) const { if (args.empty()) return invoke(0,0); else return invoke(&args[0],&args[0]+args.size()); }
 		};
 	}
 }

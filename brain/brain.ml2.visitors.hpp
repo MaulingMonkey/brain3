@@ -11,7 +11,7 @@ namespace brain {
 					return impl<L,R>::call((Self*)this,l,r);
 				}
 			private:
-				template < typename T > struct accept { static const bool value = false; };
+				template < typename T > struct accept { static const bool value = false; }; // rename as ml2::is_arithmetic<T> ?
 				
 				template <> struct accept<   signed char      > { static const bool value = true; };
 				template <> struct accept<   signed short     > { static const bool value = true; };
