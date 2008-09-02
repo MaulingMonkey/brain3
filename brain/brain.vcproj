@@ -249,6 +249,10 @@
 			RelativePath=".\main.cpp"
 			>
 		</File>
+		<File
+			RelativePath=".\oldmain.x86.cpp"
+			>
+		</File>
 	</Files>
 	<Globals>
 	</Globals>

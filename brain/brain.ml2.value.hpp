@@ -13,6 +13,8 @@
 
 namespace brain {
 	namespace ml2 {
+		struct nil {};
+
 		namespace {
 			const size_t value_data_size = 16;
 		}
@@ -49,9 +51,11 @@ namespace brain {
 			virtual R operator()( double                ) const = 0;
 			virtual R operator()( long double           ) const = 0;
 
-			virtual R operator()( const functor_object* ) const = 0;
+			virtual R operator()( const functor_object& ) const = 0;
 
-			virtual R operator()( object*               ) const = 0;
+			virtual R operator()( const object&         ) const = 0;
+
+			virtual R operator()( nil                   ) const = 0;
 		};
 
 		template < typename F , typename R = typename F::result_type > class value_visitor_adapter : public value_visitor< R > {
@@ -77,9 +81,11 @@ namespace brain {
 			virtual R operator()( double                arg ) const { return f(arg); }
 			virtual R operator()( long double           arg ) const { return f(arg); }
 
-			virtual R operator()( const functor_object* arg ) const { return f(arg); }
+			virtual R operator()( const functor_object& arg ) const { return f(arg); }
 
-			virtual R operator()( object*               arg ) const { return f(arg); }
+			virtual R operator()( const object&         arg ) const { return f(arg); }
+
+			virtual R operator()( nil                   arg ) const { return f(arg); }
 		};
 
 		
@@ -91,6 +97,29 @@ namespace brain {
 				BOOST_STATIC_ASSERT( sizeof(O) <= sizeof(data) );
 				new (data) O(o);
 			}
+			void init_f( const boost::function<void ()>& f );
+			void init_f( const boost::function<value()>& f );
+			void init_f( const boost::function<void (value)>& f );
+			void init_f( const boost::function<value(value)>& f );
+			void init_f( const boost::function<void (std::vector<value>)>& f );
+			void init_f( const boost::function<value(std::vector<value>)>& f );
+
+			template < typename R > struct to_value_or_void { typedef value type; };
+			template <> struct to_value_or_void<void> { typedef void type; };
+			
+			template < typename F, typename R > void init_f_helper( const F& f, R (F::*)() ) {
+				using namespace boost;
+				typedef typename to_value_or_void<R>::type R2;
+				init_f( function< R2() >(f) );
+			}
+			template < typename F, typename R, typename Arg > void init_f_helper( const F& f, R (F::*)( Arg ) ) {
+				using namespace boost;
+				typedef typename to_value_or_void<R>::type R2;
+				typedef typename remove_const< typename remove_reference<Arg>::type >::type Arg2;
+				init_f( function< R2(Arg2) >(f) );
+			}
+			template < typename F, typename R > void init_f_helper( const F& f, R (F::*fptr)() const ) { init_f_helper( f, (R (F::*)())0 ); }
+			template < typename F, typename R, typename Arg > void init_f_helper( const F& f, R (F::*fptr)( Arg ) const ) { init_f_helper( f, (R (F::*)(Arg))0 ); }
 		public:
 			value();
 			value( const value& );
@@ -115,12 +144,7 @@ namespace brain {
 			value( double             f64 );
 			value( long double        fwtf);
 
-			value( const boost::function<void ()>& f );
-			value( const boost::function<value()>& f );
-			value( const boost::function<void (value)>& f );
-			value( const boost::function<value(value)>& f );
-			value( const boost::function<void (std::vector<value*>)>& f );
-			value( const boost::function<value(std::vector<value*>)>& f );
+			template < typename F > value( const F& f ) { init_f_helper(f,&F::operator()); }
 
 			template < typename F > friend value apply_visitor( F f, const value& v ) {
 				return ((object*)v.data)->visit( value_visitor_adapter<F>(f) );
@@ -134,17 +158,17 @@ namespace brain {
 			public:
 				typedef typename F::result_type result_type;
 				binary_visitor_f_lhs( F f, const value& rhs ): f(f), rhs(&rhs) {}
-				template < typename L > typename F::result_type operator()( L lhs ) const {
+				template < typename L > typename F::result_type operator()( const L& lhs ) const {
 					return apply_visitor( binary_visitor_f_rhs<F,L>(f,lhs), *rhs );
 				}
 			};
 			template < typename F, typename L > class binary_visitor_f_rhs {
-				F f; L lhs;
+				F f; const L* lhs;
 			public:
 				typedef typename F::result_type result_type;
-				binary_visitor_f_rhs( F f, L lhs ): f(f), lhs(lhs) {}
-				template < typename R > typename F::result_type operator()( R rhs ) const {
-					return f(lhs,rhs);
+				binary_visitor_f_rhs( F f, const L& lhs ): f(f), lhs(&lhs) {}
+				template < typename R > typename F::result_type operator()( const R& rhs ) const {
+					return f(*lhs,rhs);
 				}
 			};
 		public:
@@ -164,16 +188,17 @@ namespace brain {
 
 		class functor_object : public object {
 		protected:
-			virtual value invoke( value** begin, value** end ) const = 0; // XXX -- replace this signature, it is horrible evil and broken horrible
+			virtual value invoke( const value* begin, const value* end ) const = 0;
 		public:
-			virtual value visit( const value_visitor<value>& visitor ) { return visitor(this); }
+			virtual value visit( const value_visitor<value>& visitor ) { return visitor(*this); }
 
 			value operator()() const { return invoke(0,0); }
-			value operator()( value arg1 ) const { value* args[] = { &arg1 }; return invoke(boost::begin(args),boost::end(args)); }
-			value operator()( value arg1, value arg2 ) const { value* args[] = { &arg1,&arg2 }; return invoke(boost::begin(args),boost::end(args)); }
-			value operator()( value arg1, value arg2, value arg3 ) const { value* args[] = { &arg1,&arg2,&arg3 }; return invoke(boost::begin(args),boost::end(args)); }
-			value operator()( value arg1, value arg2, value arg3, value arg4 ) const { value* args[] = { &arg1,&arg2,&arg3,&arg4 }; return invoke(boost::begin(args),boost::end(args)); }
-			value operator()( std::vector<value*> args ) const { if (args.empty()) return invoke(0,0); else return invoke(&args[0],&args[0]+args.size()); }
+			value operator()( value arg1 ) const { const value args[] = { arg1 }; return invoke(boost::begin(args),boost::end(args)); }
+			value operator()( value arg1, value arg2 ) const { const value args[] = { arg1,arg2 }; return invoke(boost::begin(args),boost::end(args)); }
+			value operator()( value arg1, value arg2, value arg3 ) const { const value args[] = { arg1,arg2,arg3 }; return invoke(boost::begin(args),boost::end(args)); }
+			value operator()( value arg1, value arg2, value arg3, value arg4 ) const { const value args[] = { arg1,arg2,arg3,arg4 }; return invoke(boost::begin(args),boost::end(args)); }
+			value operator()( const value* begin, const value* end ) const { return invoke(begin,end); }
+			value operator()( const std::vector<value>& v ) const { if (v.empty()) return invoke(0,0); else return invoke(&v[0],&v[0]+v.size()); }
 		};
 	}
 }

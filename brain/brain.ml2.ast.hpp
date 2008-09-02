@@ -69,10 +69,8 @@ namespace brain {
 
 				std::vector<value> results;
 				BOOST_FOREACH( const expression::ref& arg, args ) results.push_back( arg->calculate(calc_args) );
-				std::vector<value*> arg_results;
-				BOOST_FOREACH( value& result, results ) arg_results.push_back(&result);
-
-				return apply_visitor( call_visitor(arg_results), f );
+				
+				return apply_visitor( call_visitor(results), f );
 			}
 			
 			virtual int precedence() const { return 1; }

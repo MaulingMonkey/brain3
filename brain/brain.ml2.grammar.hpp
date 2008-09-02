@@ -26,7 +26,7 @@ namespace brain {
 	RULE( call_op_init, (f), eps_p[f=call_op_tail.f] ) { return call_expression(f); }
 	RULE( call_op_arg, (call)(arg), eps_p[call=call_op_tail.call] >> precdN[arg=arg1] ) { call->add_argument(arg); return arg; }
 	RULE( precd1, (root), precd0[root=arg1] >> *(precd1_op_tail[root=arg1]) ) { return root; }
-	RULE( call_op_tail, (f)(call), eps_p[f=precd1.root] >> '(' >> call_op_init[call=arg1] >> list_p(call_op_arg,',') >> ')' ) { return call; }
+	RULE( call_op_tail, (f)(call), eps_p[f=precd1.root] >> '(' >> call_op_init[call=arg1] >> !list_p(call_op_arg,',') >> ')' ) { return call; }
 	RULE_GROUP( precd1_op_tail, (call_op_tail) );
 	//RULE_GROUP( precd1, (precd0) );
 

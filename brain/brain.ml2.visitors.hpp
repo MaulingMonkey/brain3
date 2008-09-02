@@ -7,8 +7,8 @@ namespace brain {
 			template < typename Self > struct binary_arith_visitor {
 				typedef value result_type;
 
-				template < typename L , typename R > value operator()( L l, R r ) const {
-					return impl<L,R>::call((Self*)this,l,r);
+				template < typename L , typename R > value operator()( const L& l, const R& r ) const {
+					return impl<L,R>::call((const Self*)this,l,r);
 				}
 			private:
 				template < typename T > struct accept { static const bool value = false; }; // rename as ml2::is_arithmetic<T> ?
@@ -29,11 +29,11 @@ namespace brain {
 				template <> struct accept< double             > { static const bool value = true; };
 				template <> struct accept< long double        > { static const bool value = true; };
 
-				template < typename L , typename R , bool okay = accept<L>::value && accept<R>::value > struct impl { static value call( Self* self, L l, R r ) {
+				template < typename L , typename R , bool okay = accept<L>::value && accept<R>::value > struct impl { static value call( const Self* self, L l, R r ) {
 					return self->impl(l,r);
 				}};
 
-				template < typename L , typename R > struct impl<L,R,false /*!okay*/> { static value call( Self* self, L l, R r ) {
+				template < typename L , typename R > struct impl<L,R,false /*!okay*/> { static value call( const Self* self, const L& l, const R& r ) {
 					if ( !accept<L>::value ) throw std::runtime_error( std::string(typeid(L).name()) + " is not valid for arithmetic expressions" );
 					else                     throw std::runtime_error( std::string(typeid(R).name()) + " is not valid for arithmetic expressions" );
 				}};
@@ -57,10 +57,14 @@ namespace brain {
 		struct call_visitor {
 			typedef value result_type;
 			
-			call_visitor( const std::vector<value*>& args ): args(args) {}
+			call_visitor( const std::vector<value>& args )
+				: begin(args.empty()?0:&args[0])
+				, end  (args.empty()?0:&args[0]+args.size())
+			{
+			}
 
-			value operator()( const functor_object* f ) const {
-				return (*f)(args);
+			value operator()( const functor_object& f ) const {
+				return f(begin,end);
 			}
 			template < typename T > value operator()( const T& other ) const {
 				std::stringstream ss;
@@ -68,7 +72,8 @@ namespace brain {
 				throw std::runtime_error(ss.str());
 			}
 		private:
-			const std::vector<value*>& args;
+			const value* begin;
+			const value* end;
 		};
 	}
 }
