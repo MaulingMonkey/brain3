@@ -127,6 +127,10 @@ namespace brain {
 		value& value::operator*=( const value& other ) { *this = apply_visitor( mul_visitor(), *this, other ); return *this; }
 		value& value::operator/=( const value& other ) { *this = apply_visitor( div_visitor(), *this, other ); return *this; }
 
-		// XXX:  implement value::operator()( ... )
+		value value::operator()() const { return apply_visitor( call_visitor(), *this ); }
+		value value::operator()( const value& arg1 ) const { value args[]={arg1}; return apply_visitor( call_visitor(args), *this ); }
+		value value::operator()( const value& arg1, const value& arg2 ) const { value args[]={arg1,arg2}; return apply_visitor( call_visitor(args), *this ); }
+		value value::operator()( const value& arg1, const value& arg2, const value& arg3 ) const { value args[]={arg1,arg2,arg3}; return apply_visitor( call_visitor(args), *this ); }
+		value value::operator()( const value& arg1, const value& arg2, const value& arg3, const value& arg4 ) const { value args[]={arg1,arg2,arg3,arg4}; return apply_visitor( call_visitor(args), *this ); }
 	}
 }

@@ -1,19 +1,24 @@
 #include "brain.ml2.grammar.hpp"
 #include <iostream>
+#include <boost/cstdint.hpp>
 
 class print_f {
 	std::ostream& os;
+	const bool newline;
 public:
-	print_f( std::ostream& os ): os(os) {}
+	print_f( std::ostream& os, bool newline ): os(os), newline(newline) {}
 
-	brain::ml2::value operator()( const std::vector< brain::ml2::value >& args ) const {
+	void operator()( const std::vector< brain::ml2::value >& args ) const {
 		BOOST_FOREACH( const brain::ml2::value& v, args ) os << v;
-		return brain::ml2::value();
+		if ( newline ) os << "\n";
 	}
 };
 
-class and_now_for_something_completely_different_f {
-public:
+struct needs_more_cowbell_f {
+	void operator()() {}
+};
+
+struct and_now_for_something_completely_different_f {
 	int operator()() { std::cout << "!!!\n"; return 42; }
 };
 
@@ -23,22 +28,29 @@ void eval( const std::string& op ) {
 	using namespace boost::spirit;
 	using namespace std;
 
+	std::cout << "eval(\"" << op << "\");\n";
+
 	ml2::grammar g;
-	expr_ref_t expression;
-	parse_info<string::const_iterator> info = parse( op.begin(), op.end(), g[assign_a(expression)], +space_p );
+	ml2::expression::ref expression;
+	parse_info<string::const_iterator> info = parse( op.begin(), op.end(), g[assign_a(expression)], whitespace );
 	if ( info.full ) {
 		ml2::expression::calculate_args_type args;
 		args["a"]      = 42.1;
 		args["b"]      = 24.3;
-		args["print"]  = print_f(std::cout);
+		args["print"]  = print_f(std::cout,false);
+		args["puts"]   = print_f(std::cout,true );
+		args["nmcb"]   = needs_more_cowbell_f();
 		args["anfscd"] = and_now_for_something_completely_different_f();
-		std::cout << "\n=> " << expression->calculate(args) << std::endl;
+		std::cout << "=> " << expression->calculate(args)() << "\n";
 	} else {
-		std::cout << "Failed to fully match!" << std::endl;
+		std::cout << "Failed to fully match!\n";
 	}
+	std::cout << std::endl;
 }
 
 int main() {
+	eval( "puts(4*a+b);" );
 	eval( "anfscd();" );
-	eval( "print(4*a+b);" );
+	eval( "nmcb();" );
+	eval( "def f() := 4*a; f();" );
 }

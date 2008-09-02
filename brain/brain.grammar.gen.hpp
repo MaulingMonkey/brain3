@@ -57,6 +57,7 @@ public:
 		struct name##_context {                                                                             \
 			name##_rule& rule;                                                                              \
 			BOOST_PP_SEQ_FOR_EACH(DO_CLONE_CLOSURE_VALUE_IN_CONTEXT,~,closures)                             \
+			const _expression_reference_t nothing;                                                          \
 		    inline _expression_reference_t::autoconv act() const;                                           \
 			name##_context( name##_rule& rule ): rule(rule)                                                 \
 				BOOST_PP_SEQ_FOR_EACH( DO_CLONE_CLOSURE_VALUE_INIT,~,closures )                             \

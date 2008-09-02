@@ -1,6 +1,8 @@
 #ifndef IG_BRAIN_ML2_VISITORS
 #define IG_BRAIN_ML2_VISITORS
 
+#include <sstream>
+
 namespace brain {
 	namespace ml2 {
 		namespace detail {
@@ -57,6 +59,9 @@ namespace brain {
 		struct call_visitor {
 			typedef value result_type;
 			
+			call_visitor(): begin(0), end(0) {}
+			template < size_t N > call_visitor( const value (&args)[N] ): begin(args+0), end(args+N) {}
+
 			call_visitor( const std::vector<value>& args )
 				: begin(args.empty()?0:&args[0])
 				, end  (args.empty()?0:&args[0]+args.size())
@@ -67,7 +72,7 @@ namespace brain {
 				return f(begin,end);
 			}
 			template < typename T > value operator()( const T& other ) const {
-				std::stringstream ss;
+				std::ostringstream ss;
 				ss << "Cannot call a " << typeid(T).name();
 				throw std::runtime_error(ss.str());
 			}

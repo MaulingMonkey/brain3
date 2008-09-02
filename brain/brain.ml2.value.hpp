@@ -107,20 +107,25 @@ namespace brain {
 			template < typename R > struct to_value_or_void { typedef value type; };
 			template <> struct to_value_or_void<void> { typedef void type; };
 			
-			template < typename F, typename R > void init_f_helper( const F& f, R (F::*)() ) {
+			template < typename F1, typename F2, typename R > void init_f_helper( const F1& f, R (F2::*)() ) {
 				using namespace boost;
 				typedef typename to_value_or_void<R>::type R2;
 				init_f( function< R2() >(f) );
 			}
-			template < typename F, typename R, typename Arg > void init_f_helper( const F& f, R (F::*)( Arg ) ) {
+			template < typename F1, typename F2, typename R, typename Arg > void init_f_helper( const F1& f, R (F2::*)( Arg ) ) {
 				using namespace boost;
 				typedef typename to_value_or_void<R>::type R2;
 				typedef typename remove_const< typename remove_reference<Arg>::type >::type Arg2;
 				init_f( function< R2(Arg2) >(f) );
 			}
-			template < typename F, typename R > void init_f_helper( const F& f, R (F::*fptr)() const ) { init_f_helper( f, (R (F::*)())0 ); }
-			template < typename F, typename R, typename Arg > void init_f_helper( const F& f, R (F::*fptr)( Arg ) const ) { init_f_helper( f, (R (F::*)(Arg))0 ); }
+			template < typename F1, typename F2, typename R > void init_f_helper( const F1& f, R (F2::*fptr)() const ) { init_f_helper( f, (R (F2::*)())0 ); }
+			template < typename F1, typename F2, typename R, typename Arg > void init_f_helper( const F1& f, R (F2::*fptr)( Arg ) const ) { init_f_helper( f, (R (F2::*)(Arg))0 ); }
 		public:
+			template < typename R, typename O             > void bind( R (O::*f)( )       ,       O* o ) { init_f_helper(boost::bind(f,o),f); }
+			template < typename R, typename O             > void bind( R (O::*f)( ) const , const O* o ) { init_f_helper(boost::bind(f,o),f); }
+			template < typename R, typename O, typename A > void bind( R (O::*f)(A)       ,       O* o ) { init_f_helper(boost::bind(f,o,_1),f); }
+			template < typename R, typename O, typename A > void bind( R (O::*f)(A) const , const O* o ) { init_f_helper(boost::bind(f,o,_1),f); }
+
 			value();
 			value( const value& );
 			value& operator=( const value& other );
@@ -183,7 +188,11 @@ namespace brain {
 			value& operator*=( const value& other );
 			value& operator/=( const value& other );
 
-			//value operator()( ... )
+			value operator()() const;
+			value operator()( const value& arg1 ) const;
+			value operator()( const value& arg1, const value& arg2 ) const;
+			value operator()( const value& arg1, const value& arg2, const value& arg3 ) const;
+			value operator()( const value& arg1, const value& arg2, const value& arg3, const value& arg4 ) const;
 		};
 
 		class functor_object : public object {

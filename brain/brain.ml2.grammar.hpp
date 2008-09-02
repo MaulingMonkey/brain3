@@ -2,6 +2,7 @@
 #define IG_BRAIN_ML2_GRAMMAR
 
 #include "brain.ml2.ast.hpp"
+#include "brain.ml2.whitespace_grammar.hpp"
 
 namespace brain {
 	namespace ml2 {
@@ -47,12 +48,33 @@ namespace brain {
 	RULE( pow_op_tail, (lhs)(rhs), eps_p[lhs=precd4.root] >> "**" >> precd4[rhs=arg1] ) { return pow_expression( lhs, rhs ); }
 	RULE_GROUP( precd4_op_tail, (pow_op_tail) );
 
+	// Precd N:
 	RULE_GROUP( precdN, (precd4) );
 
-	RULE( statement, (root), precdN[root=arg1] >> ';' ) { return root; }
-	
-	RULE_GROUP( top, (statement) );
+	// Definitions:
+	RULE( statement, (f)(s), eps_p[f=scope.f] >> precdN[s=arg1] >> ';' ) { f->add_statement(s); return s; }
 
-	START_AT( top );
+	RULE_GROUP( function_id      , (l_var) );
+	RULE_GROUP( function_param_id, (l_var) );
+	RULE( function_def_preamble , (name), lexeme_d["def" >> whitespace] >> function_id[name=arg1] ) { return function_def_expression(name); }
+	RULE( function_def_parameter, (f)(p), function_param_id[p=arg1][f=scope.f] ) { f->add_parameter(p); return nothing; }
+	RULE( function_def          , (f)(oldf)
+		,	eps_p[oldf=scope.f] >> function_def_preamble[scope.f=f=arg1] >> '(' >> !list_p(function_def_parameter,',') >> ')'
+		>>	(	(!str_p(":=") >> '{'  >> +statement >> '}')
+			||	(!str_p(":=") >> lexeme_d["do">>whitespace] >> +statement >> lexeme_d["end">>whitespace])
+			||	(str_p(":=")  >> statement)
+			)
+		||	( eps_p[scope.f=oldf] >> nothing_p )
+	) {
+		oldf->add_statement(f);
+		return nothing;
+	}
+	
+	RULE_GROUP( def, (function_def) );
+	
+	RULE( create_main_scope_id,, eps_p ) { return variable_expression(":main:"); }
+	RULE( create_main_scope,(name), create_main_scope_id[name=arg1] ) { return function_def_expression(name); }
+	RULE( scope, (f), create_main_scope[f=arg1] >> +( def | statement ) ) { return f; }
+	START_AT( scope );
 
 #endif //ndef IG_BRAIN_ML2_GRAMMAR
