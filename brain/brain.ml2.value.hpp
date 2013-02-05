@@ -198,6 +198,7 @@ namespace brain {
 		class functor_object : public object {
 		protected:
 			virtual value invoke( const value* begin, const value* end ) const = 0;
+			virtual void print_to( std::ostream& os ) const { os << "<function>"; }
 		public:
 			virtual value visit( const value_visitor<value>& visitor ) { return visitor(*this); }
 
@@ -208,6 +209,8 @@ namespace brain {
 			value operator()( value arg1, value arg2, value arg3, value arg4 ) const { const value args[] = { arg1,arg2,arg3,arg4 }; return invoke(boost::begin(args),boost::end(args)); }
 			value operator()( const value* begin, const value* end ) const { return invoke(begin,end); }
 			value operator()( const std::vector<value>& v ) const { if (v.empty()) return invoke(0,0); else return invoke(&v[0],&v[0]+v.size()); }
+			
+			friend std::ostream& operator<<( std::ostream& os, const functor_object& f ) { f.print_to(os); return os; }
 		};
 	}
 }

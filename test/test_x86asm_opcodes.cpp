@@ -27,6 +27,11 @@ BOOST_AUTO_TEST_CASE( test_assembler_adc_rm_r_generation ) {
 	ADC( esi, eax, (11)(06)     ); //004124FE 11 06            adc         dword ptr [esi],eax
 	ADC( edi, eax, (11)(07)     ); //00412500 11 07            adc         dword ptr [edi],eax
 
+	__asm adc eax, eax;
+	__asm adc  ax,  ax;
+	__asm adc ebx, ebx;
+	__asm adc  bx,  bx;
+
 	ADC( eax+4, eax, (11)(40)(04)     ); //00443477 11 40 04         adc         dword ptr [eax+4],eax 
 	ADC( ecx+4, eax, (11)(41)(04)     ); //0044347A 11 41 04         adc         dword ptr [ecx+4],eax 
 	ADC( edx+4, eax, (11)(42)(04)     ); //0044347D 11 42 04         adc         dword ptr [edx+4],eax 

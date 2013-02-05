@@ -2,6 +2,7 @@
 #define IG_BRAIN_X86_EXPRESSIONS
 
 #include "brain.x86.registers.hpp"
+#include <boost/variant.hpp>
 
 namespace brain {
 	namespace x86 {
@@ -83,7 +84,51 @@ namespace brain {
 				template < typename R > untyped_reg_reg_disp_expr<R>        operator[]( const reg_reg_disp_expr<R>&        expr ) const { untyped_reg_reg_disp_expr<R>        d = { expr.reg1,             expr.reg2, expr.disp }; return d; }
 				template < typename R > untyped_reg_scaled_reg_disp_expr<R> operator[]( const reg_scaled_reg_disp_expr<R>& expr ) const { untyped_reg_scaled_reg_disp_expr<R> d = { expr.reg1, expr.scale, expr.reg2, expr.disp }; return d; }
 			} const _;
-		}
+		}	
+		
+		template < typename R, size_t bits = 0 > class mem {
+		public:
+			typedef boost::variant
+				< typed_reg_expr                  <R,bits>
+				, typed_scaled_reg_expr           <R,bits>
+				, typed_reg_reg_expr              <R,bits>
+				, typed_reg_scaled_reg_expr       <R,bits>
+				, typed_reg_disp_expr             <R,bits>
+				, typed_reg_reg_disp_expr         <R,bits>
+				, typed_reg_scaled_reg_disp_expr  <R,bits>
+				> variant_type;
+		private:
+			variant_type expr;
+		public:
+			mem( const typed_reg_expr                  <R,bits>& expr ): expr(expr) {}
+			mem( const typed_scaled_reg_expr           <R,bits>& expr ): expr(expr) {}
+			mem( const typed_reg_reg_expr              <R,bits>& expr ): expr(expr) {}
+			mem( const typed_reg_scaled_reg_expr       <R,bits>& expr ): expr(expr) {}
+			mem( const typed_reg_disp_expr             <R,bits>& expr ): expr(expr) {}
+			mem( const typed_reg_reg_disp_expr         <R,bits>& expr ): expr(expr) {}
+			mem( const typed_reg_scaled_reg_disp_expr  <R,bits>& expr ): expr(expr) {}
+			
+			template < typename V > friend typename V::result_type apply_visitor( V visitor, const mem& self ) { return boost::apply_visitor(visitor,self.expr); }
+		};
+		
+		template < typename R > class mem<R,0> {
+			typedef boost::variant< mem<R,8>, mem<R,16>, mem<R,32> > variant_type;
+			variant_type expr;
+			
+			// Revisit self:
+			template < typename V > class revisit {
+				V visitor;
+			public:
+				revisit( V visitor ): visitor(visitor) {}
+				template < typename MEM > typename V::result_type operator()( const MEM& mem ) const { apply_visitor(visitor,mem); }
+			};
+		public:
+			mem( const mem<R, 8>& mem8  ): expr(mem8 ) {}
+			mem( const mem<R,16>& mem16 ): expr(mem16) {}
+			mem( const mem<R,32>& mem32 ): expr(mem32) {}
+			
+			template < typename V > friend typename V::result_type apply_visitor( V visitor, const mem& self ) { return boost::apply_visitor(revisit<V>(visitor),self.expr); }
+		};
 	}
 }
 

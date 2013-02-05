@@ -41,7 +41,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="..\..\libindustry\trunk;..\brain"
+				AdditionalIncludeDirectories="I:\home\projects\dead\libindustry.git;&quot;I:\home\projects\dead\_ Parsing &amp; Language Hackery\brain3\brain&quot;"
 				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"

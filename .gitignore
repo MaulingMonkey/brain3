@@ -1,0 +1,11 @@
+*.idb
+*.pdb
+*.zip
+*.ncb
+*.suo
+*.user
+Thumbs.db
+obj/
+bin/
+Debug/
+Release/

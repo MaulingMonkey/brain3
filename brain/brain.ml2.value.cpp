@@ -111,7 +111,6 @@ namespace brain {
 			std::ostream* os;
 			print_visitor( std::ostream& os ): os(&os) {}
 			template < typename V > value operator()( const V& v ) const { *os << v; return value(); }
-			value operator()( const functor_object& f ) const { *os << "<function>"; return value(); }
 			value operator()( const object&         o ) const { *os << "<object>"; return value(); }
 			value operator()( nil                     ) const { *os << "nil"; return value(); }
 		};

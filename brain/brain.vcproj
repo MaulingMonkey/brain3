@@ -41,7 +41,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="..\..\libindustry\trunk\"
+				AdditionalIncludeDirectories="I:\home\projects\dead\libindustry.git;&quot;I:\home\projects\dead\_ Parsing &amp; Language Hackery\brain3\brain&quot;"
 				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -196,6 +196,14 @@
 			>
 		</File>
 		<File
+			RelativePath=".\brain.ml2.eval.cpp"
+			>
+		</File>
+		<File
+			RelativePath=".\brain.ml2.eval.hpp"
+			>
+		</File>
+		<File
 			RelativePath=".\brain.ml2.grammar.hpp"
 			>
 		</File>
@@ -236,6 +244,14 @@
 					Outputs=""
 				/>
 			</FileConfiguration>
+		</File>
+		<File
+			RelativePath=".\brain.x86.assembler_v3.hpp"
+			>
+		</File>
+		<File
+			RelativePath=".\brain.x86.assembler_v4.hpp"
+			>
 		</File>
 		<File
 			RelativePath=".\brain.x86.expressions.hpp"

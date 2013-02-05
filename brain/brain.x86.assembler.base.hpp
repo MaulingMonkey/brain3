@@ -36,17 +36,17 @@ namespace brain {
 
 			template < typename R, size_t M_B > void _r_r_rm( R r, const typed_reg_expr<r32,M_B>& rm ) {
 				switch ( rm.reg.value ) {
-				case r32::_esp: ModR_M(0,r.value,4);         SIB(0,4,4); break;
-				case r32::_ebp: ModR_M(1,r.value,ebp.value); disp8(0);   break;
+				case r32::_esp: ModR_M(0,r.value,4);         SIB(0,4,4); break; // Exceptional case: RM field of ESP indicates SIB byte instead
+				case r32::_ebp: ModR_M(1,r.value,ebp.value); disp8(0);   break; // Exceptional case: RM field of EBP indicates disp32 instead, use [EBP+disp8] instead
 				default:        ModR_M(0,r.value,rm.reg.value);          break;
 				}
 			}
 			template < typename R, size_t M_B > void _r_r_rm( R r, const typed_scaled_reg_expr<r32,M_B>& rm ) {
 				if ( rm.scale == 1 ) {
-					typed_reg_expr<r32,M_B> expr = { rm.reg };
+					typed_reg_expr<r32,M_B> expr = { rm.reg }; // Nonexceptional case: Elide unnecessary scales
 					_r_r_rm( r, expr );
 				} else if ( rm.reg == esp ) {
-					throw std::runtime_error( "Cannot do [#*esp]" );
+					throw std::runtime_error( "Cannot do [#*esp]" ); // Exceptional case: RM field of ESP indicates no scaled byte instead
 				} else {
 					int scale;
 					switch ( rm.scale ) {
@@ -65,15 +65,17 @@ namespace brain {
 				r32 reg1 = rm.reg1;
 				r32 reg2 = rm.reg2;
 
-				if ( reg1 == reg2 ) {
-					if ( reg1 == esp ) throw std::runtime_error( "Cannot do [esp + esp]" );
-					if ( reg1 == ebp ) throw std::runtime_error( "Cannot do [ebp + ebp]" );
+				if ( reg1 == esp && reg2 == esp ) throw std::runtime_error( "Cannot do [esp + esp]" ); // No SIB byte we can use
+				if ( reg1 == esp ) std::swap(reg1,reg2); // Exceptional case: [ 100B + reg2 ] is [ none + reg2 ], not [ reg1 + reg2 ]
+				if ( reg2 == ebp ) {
+					// Exceptional case: Mod = 00B is [ reg1 + disp32 ], not [ reg1 + EBP ]
+					// Mod = 01B or 10B (e.g. displacement expressions) are fine though, so substitute them instead:
+					typed_reg_reg_disp_expr<r32,M_B> expr = { reg1, reg2, 0 };
+					_r_r_rm(r,expr);
+				} else {
+					ModR_M(0,r.value,4); // [--][--]
+					SIB(0,reg1.value,reg2.value); // [reg1][reg2]
 				}
-
-				if ( reg1 == esp ) std::swap(reg1,reg2);
-
-				ModR_M(0,r.value,4); // [--][--]
-				SIB(0,reg1.value,reg2.value); // [reg1][reg2]
 			}
 			template < typename R, size_t M_B > void _r_r_rm( R r, const typed_reg_scaled_reg_expr<r32,M_B>& rm ) {
 				if ( rm.scale == 1 ) {
@@ -124,13 +126,9 @@ namespace brain {
 					r32 reg1 = rm.reg1;
 					r32 reg2 = rm.reg2;
 
-					if ( reg1 == reg2 ) {
-						if ( reg1 == esp ) throw std::runtime_error( "Cannot do [esp + esp + #]" );
-						if ( reg1 == ebp ) throw std::runtime_error( "Cannot do [ebp + ebp + #]" );
-					}
-
-					if ( reg1 == esp ) std::swap(reg1,reg2);
-
+					if ( reg1 == esp && reg2 == esp ) throw std::runtime_error( "Cannot do [esp + esp + #]" );
+					if ( reg1 == esp ) std::swap(reg1,reg2); // Exceptional case: [ 100B + reg2 ] is [ none + reg2 ], not [ reg1 + reg2 ]
+					
 					const bool fits_in_8 = is_legal_disp8(rm.disp);
 					ModR_M( fits_in_8?1:2, r.value, 4); // [--][--] + disp8|32
 					SIB(0,reg2.value,reg1.value); // [reg1][reg2]
@@ -143,8 +141,8 @@ namespace brain {
 				} else if ( rm.scale == 1 ) {
 					typed_reg_reg_disp_expr<r32,M_B> expr = { rm.reg1, rm.reg2, rm.disp };
 					_r_r_rm(r,expr);
-				} else if ( rm.reg1 == ebp ) {
-					throw std::runtime_error( "Cannot do [ebp + #*??? + #]" );
+				// } else if ( rm.reg1 == ebp ) {
+					// Mod is nonzero anyways, e.g. [EBP+disp8] or [EBP+disp32], no special case here!
 				} else if ( rm.reg2 == esp ) {
 					throw std::runtime_error( "Cannot do [??? + #*esp + #]" );
 				} else {
